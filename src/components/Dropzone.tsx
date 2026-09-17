@@ -1,0 +1,167 @@
+import { useRef, useState } from "react";
+import { Check, FileText, Loader2, UploadCloud, X, type LucideIcon } from "lucide-react";
+import { cn } from "../utils/cn";
+import { formatKb, type FileBundle } from "../lib/engine";
+
+interface DropzoneProps {
+  accent: "sky" | "emerald";
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+  bundle: FileBundle | null;
+  busy: boolean;
+  onSelect: (files: File[]) => void;
+  onClear: () => void;
+}
+
+const ACCENTS = {
+  sky: {
+    iconTile: "bg-sky-400/10 text-sky-300 ring-sky-400/25",
+    hover: "hover:border-sky-400/50 hover:bg-sky-400/[0.04]",
+    drag: "border-sky-400/70 bg-sky-400/[0.07]",
+    badge: "bg-sky-400/10 text-sky-300 ring-1 ring-sky-400/25",
+    clearHover: "hover:text-sky-300",
+  },
+  emerald: {
+    iconTile: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/25",
+    hover: "hover:border-emerald-400/50 hover:bg-emerald-400/[0.04]",
+    drag: "border-emerald-400/70 bg-emerald-400/[0.07]",
+    badge: "bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/25",
+    clearHover: "hover:text-emerald-300",
+  },
+} as const;
+
+export function Dropzone({
+  accent,
+  icon: Icon,
+  title,
+  hint,
+  bundle,
+  busy,
+  onSelect,
+  onClear,
+}: DropzoneProps) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const dragDepth = useRef(0);
+  const [dragging, setDragging] = useState(false);
+  const a = ACCENTS[accent];
+
+  const pick = () => inputRef.current?.click();
+
+  const handleFiles = (list: FileList | null) => {
+    if (!list || list.length === 0) return;
+    const pdfs = Array.from(list).filter(
+      (f) => f.type === "application/pdf" || f.name.toLowerCase().endsWith(".pdf"),
+    );
+    if (pdfs.length > 0) onSelect(pdfs);
+  };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => !bundle && !busy && pick()}
+      onKeyDown={(e) => {
+        if ((e.key === "Enter" || e.key === " ") && !bundle && !busy) {
+          e.preventDefault();
+          pick();
+        }
+      }}
+      onDragEnter={(e) => {
+        e.preventDefault();
+        dragDepth.current += 1;
+        setDragging(true);
+      }}
+      onDragOver={(e) => e.preventDefault()}
+      onDragLeave={(e) => {
+        e.preventDefault();
+        dragDepth.current = Math.max(0, dragDepth.current - 1);
+        if (dragDepth.current === 0) setDragging(false);
+      }}
+      onDrop={(e) => {
+        e.preventDefault();
+        dragDepth.current = 0;
+        setDragging(false);
+        if (!busy) handleFiles(e.dataTransfer.files);
+      }}
+      className={cn(
+        "group relative rounded-xl border border-dashed border-white/15 bg-white/[0.02] p-4 transition-all duration-300 outline-none",
+        !bundle && "cursor-pointer",
+        !bundle && a.hover,
+        dragging && a.drag,
+        busy && "pointer-events-none opacity-70",
+      )}
+    >
+      <input
+        ref={inputRef}
+        type="file"
+        accept="application/pdf"
+        multiple
+        className="hidden"
+        onChange={(e) => {
+          handleFiles(e.target.files);
+          e.target.value = "";
+        }}
+      />
+
+      {busy ? (
+        <div className="flex items-center gap-3 py-1">
+          <span className={cn("rounded-lg p-2 ring-1", a.iconTile)}>
+            <Loader2 className="h-4 w-4 animate-spin" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-zinc-200">Merging PDFs…</p>
+            <p className="text-xs text-zinc-500">Combining pages into one batch</p>
+          </div>
+        </div>
+      ) : bundle ? (
+        <div className="flex items-center gap-3 py-1">
+          <span className={cn("rounded-lg p-2 ring-1", a.iconTile)}>
+            <FileText className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-zinc-100">
+              {bundle.fileCount === 1 ? bundle.names[0] : `${bundle.fileCount} PDF files merged`}
+            </p>
+            <p className="mt-0.5 font-mono text-[11px] text-zinc-500">
+              {bundle.pageCount} page(s) · {formatKb(bundle.totalSize)}
+            </p>
+          </div>
+          <span className={cn("flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-bold", a.badge)}>
+            <Check className="h-3 w-3" /> READY
+          </span>
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onClear();
+            }}
+            className={cn(
+              "rounded-md p-1.5 text-zinc-500 transition-colors hover:bg-white/5",
+              a.clearHover,
+            )}
+            title="Clear files"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 py-1">
+          <span
+            className={cn(
+              "rounded-lg p-2 ring-1 transition-transform duration-300 group-hover:scale-110",
+              a.iconTile,
+            )}
+          >
+            <Icon className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold text-zinc-200">{title}</p>
+            <p className="text-xs text-zinc-500">{hint}</p>
+          </div>
+          <UploadCloud className="h-4 w-4 shrink-0 text-zinc-600 transition-colors group-hover:text-zinc-400" />
+        </div>
+      )}
+    </div>
+  );
+}

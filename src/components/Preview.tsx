@@ -18,7 +18,6 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  /*  Load document ── */
   useEffect(() => {
     let cancelled = false;
     let pdfDoc: PDFDocumentProxy | null = null;
@@ -45,12 +44,10 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
     return () => { cancelled = true; if (pdfDoc) void pdfDoc.destroy(); };
   }, [bytes]);
 
-  /* ── Render page ─ */
   useEffect(() => {
     if (!doc || currentPage < 1 || currentPage > numPages) return;
     let cancelled = false;
 
-    // Fixed container dimensions
     const CONTAINER_W = 520;
     const CONTAINER_H = 720;
 
@@ -62,8 +59,6 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
         if (cancelled || !canvas) return;
 
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
-
-        // Compute scale so the page fits inside the fixed container
         const viewportRaw = page.getViewport({ scale: 1 });
         const fitScale = Math.min(CONTAINER_W / viewportRaw.width, CONTAINER_H / viewportRaw.height);
         const viewport = page.getViewport({ scale: fitScale * dpr });
@@ -95,8 +90,8 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
 
   if (!bytes) {
     return (
-      <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-        <header className="flex items-center gap-2 border-b border-white/[0.06] px-4 py-2.5">
+      <section className="diamond-card rounded-xl overflow-hidden">
+        <header className="flex items-center gap-2 border-b border-white/[0.08] px-4 py-2.5">
           <FileText className="h-3.5 w-3.5 text-zinc-500" />
           <h2 className="text-xs font-semibold text-zinc-200">Preview</h2>
         </header>
@@ -108,9 +103,9 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
   }
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
+    <section className="diamond-card rounded-xl overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between border-b border-white/[0.06] px-4 py-2">
+      <header className="flex items-center justify-between border-b border-white/[0.08] px-4 py-2">
         <div className="flex items-center gap-2">
           <FileText className="h-3.5 w-3.5 text-zinc-500" />
           <h2 className="text-xs font-semibold text-zinc-200">Preview</h2>
@@ -125,7 +120,7 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
               type="button"
               onClick={() => onPageChange(currentPage - 1)}
               disabled={currentPage <= 1}
-              className="rounded-md border border-white/10 bg-white/[0.03] p-1 text-zinc-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+              className="rounded-md border border-white/10 bg-white/[0.05] p-1 text-zinc-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronLeft className="h-3.5 w-3.5" />
             </button>
@@ -136,7 +131,7 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
               type="button"
               onClick={() => onPageChange(currentPage + 1)}
               disabled={currentPage >= numPages}
-              className="rounded-md border border-white/10 bg-white/[0.03] p-1 text-zinc-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
+              className="rounded-md border border-white/10 bg-white/[0.05] p-1 text-zinc-300 transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronRight className="h-3.5 w-3.5" />
             </button>
@@ -159,7 +154,7 @@ export function Preview({ bytes, pages: _pages, currentPage, onPageChange }: Pre
             )}
             <canvas
               ref={canvasRef}
-              className="rounded bg-white shadow-2xl ring-1 ring-white/10"
+              className="rounded bg-white shadow-2xl ring-1 ring-violet-400/20"
               style={{ maxWidth: "600px", maxHeight: "700px" }}
             />
           </div>

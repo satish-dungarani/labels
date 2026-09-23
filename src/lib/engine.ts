@@ -4,7 +4,9 @@ import {
   buildInvoiceGroups,
   extractAddressTokensNearPostcodes,
   extractPostcodes,
+  extractSkus,
   findBestLabelForGroup,
+  getSkuBucket,
   prettyPostcode,
   type InvoiceGroup,
   type PdfTextPage,
@@ -47,6 +49,7 @@ export interface OutputPage {
   role: "invoice" | "label";
   orderNumber: number;
   postcode: string;
+  skuBucket: string; // e.g. "A", "B", ..., "Mixed"
 }
 
 export interface ProcessStats {
@@ -62,6 +65,7 @@ export interface ProcessResult {
   failedBytes: Uint8Array | null;
   pages: OutputPage[];
   stats: ProcessStats;
+  skuBuckets: string[]; // e.g. ["A", "B", "Mixed"]
 }
 
 /* ------------------------------------------------------------------ */
@@ -206,6 +210,7 @@ export async function processDocuments(
 
   let matchesCount = 0;
   let unmatchedCount = 0;
+  const skuBucketsSet = new Set<string>();
 
   for (const group of groups) {
     const match = findBestLabelForGroup(
@@ -215,6 +220,12 @@ export async function processDocuments(
       usedLabelPages,
     );
 
+    // Extract SKUs from all pages in this group
+    const groupTexts = group.pageIndices.map((idx) => invoicesData[idx]?.text || "");
+    const allSkus = groupTexts.flatMap(extractSkus);
+    const bucket = getSkuBucket(allSkus);
+    skuBucketsSet.add(bucket);
+
     if (match) {
       matchesCount++;
       usedLabelPages.add(match.labelIndex);
@@ -223,7 +234,7 @@ export async function processDocuments(
       log(
         `Match: order ${group.orderNumber} (invoice p.${group.startPageNumber}) → label p.${
           match.labelIndex + 1
-        } [${prettyPostcode(match.postcode)}] · evidence score ${match.score}`,
+        } [${prettyPostcode(match.postcode)}] · evidence score ${match.score} · SKU bucket: ${bucket}`,
         "success",
       );
       if (match.ambiguousResolvedByOrder) {
@@ -240,6 +251,7 @@ export async function processDocuments(
           role: "invoice",
           orderNumber: group.orderNumber,
           postcode: match.postcode,
+          skuBucket: bucket,
         });
       });
 
@@ -253,6 +265,7 @@ export async function processDocuments(
             role: "label",
             orderNumber: group.orderNumber,
             postcode: match.postcode,
+            skuBucket: bucket,
           });
         });
       } else {
@@ -339,6 +352,13 @@ export async function processDocuments(
     log("No matches found — nothing to output.", "error");
   }
 
+  // Sort buckets: A-Z first, then Mixed
+  const buckets = [...skuBucketsSet].sort((a, b) => {
+    if (a === "Mixed") return 1;
+    if (b === "Mixed") return -1;
+    return a.localeCompare(b);
+  });
+
   return {
     matchedBytes,
     failedBytes,
@@ -350,6 +370,7 @@ export async function processDocuments(
       unmatched: unmatchedCount,
       unused: unusedLabels.size,
     },
+    skuBuckets: buckets,
   };
 }
 
@@ -429,4 +450,30 @@ export function downloadBytes(bytes: Uint8Array, filename: string): void {
 export function formatKb(size: number): string {
   if (size >= 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   return `${(size / 1024).toFixed(0)} KB`;
+}
+
+/**
+ * Extract pages belonging to a specific SKU bucket from the combined PDF.
+ */
+export async function extractSkuBucket(
+  bytes: Uint8Array,
+  pages: OutputPage[],
+  bucket: string,
+): Promise<Uint8Array | null> {
+  const srcDoc = await PDFDocument.load(bytes.slice(), { ignoreEncryption: true });
+  const outDoc = await PDFDocument.create();
+
+  const bucketIndices: number[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    if (pages[i].skuBucket === bucket) {
+      bucketIndices.push(i);
+    }
+  }
+
+  if (bucketIndices.length === 0) return null;
+
+  const copied = await outDoc.copyPages(srcDoc, bucketIndices);
+  copied.forEach((page) => outDoc.addPage(page));
+
+  return await outDoc.save();
 }

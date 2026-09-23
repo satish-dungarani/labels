@@ -26,16 +26,16 @@ export function LogPanel({ logs }: { logs: LogEntry[] }) {
   }, [logs]);
 
   return (
-    <section className="overflow-hidden rounded-2xl border border-white/10 bg-[#0a0c11]">
-      <header className="flex items-center gap-3 border-b border-white/[0.06] px-4 py-2.5">
+    <section className="diamond-card rounded-xl overflow-hidden">
+      <header className="flex items-center gap-3 border-b border-white/[0.08] px-4 py-2.5">
         <span className="flex gap-1.5">
           <i className="h-2.5 w-2.5 rounded-full bg-rose-500/70" />
           <i className="h-2.5 w-2.5 rounded-full bg-amber-400/70" />
           <i className="h-2.5 w-2.5 rounded-full bg-emerald-400/70" />
         </span>
-        <span className="flex items-center gap-1.5 text-[11px] font-semibold tracking-widest text-zinc-500 uppercase">
+        <span className="flex items-center gap-1.5 text-[10px] font-semibold tracking-widest text-zinc-500 uppercase">
           <TerminalSquare className="h-3.5 w-3.5" />
-          Activity log
+          Activity Log
         </span>
       </header>
       <div
@@ -50,7 +50,7 @@ export function LogPanel({ logs }: { logs: LogEntry[] }) {
         ))}
         <div className="mt-1 flex items-center gap-1 text-zinc-600">
           <span>›</span>
-          <span className="inline-block h-3.5 w-1.5 animate-pulse-soft bg-zinc-500" />
+          <span className="inline-block h-3.5 w-1.5 animate-pulse-glow bg-violet-400/50" />
         </div>
       </div>
     </section>

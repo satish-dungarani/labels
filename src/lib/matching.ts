@@ -225,3 +225,49 @@ export function buildInvoiceGroups(invoicesData: PdfTextPage[]): InvoiceGroup[] 
 
   return groups;
 }
+
+/**
+ * Extract SKU codes from invoice text.
+ *
+ * Actual SKU pattern (from screenshots):
+ *   Letter + 2 digits + 1-2 letters + 4-5 digits
+ *   Examples: B16PT3802, B10B16058, E09M15422, A08B12587, B02B16633, C08M16506
+ *
+ * This strict pattern avoids matching postcodes (B5S7EW), VAT numbers (GB202436845),
+ * CO Reg No, dates, amounts, or any other invoice text.
+ *
+ * Returns the first letter of each unique SKU found (for bucket assignment).
+ */
+export function extractSkus(text: string): string[] {
+  // Pattern: 1-2 leading letters + 2 digits + 1-2 letters + 1+ trailing digits
+  // Handles: B16PT3802 (1 letter), LB01M16509 (2 letters), C12TT1 (1 trailing digit),
+  // and truncated SKUs like A01T13. Still safely rejects postcodes (B5S7EW has only
+  // 1 digit after the initial letter) and VAT/CO numbers (no letter section after digits).
+  const regex = /[A-Z]{1,2}\d{2}[A-Z]{1,2}\d{1,}/gi;
+  const matches = text.match(regex);
+  if (!matches) return [];
+
+  const seen = new Set<string>();
+  const firstLetters: string[] = [];
+  for (const m of matches) {
+    const firstChar = m[0].toUpperCase(); // normalize to uppercase
+    if (firstChar >= "A" && firstChar <= "Z" && !seen.has(firstChar)) {
+      seen.add(firstChar);
+      firstLetters.push(firstChar);
+    }
+  }
+  return firstLetters;
+}
+
+/**
+ * Determine the SKU bucket for an invoice group.
+ * extractSkus() returns first letters of unique SKUs.
+ * If all same letter → that letter.
+ * If different letters or no SKUs found → "Mixed".
+ */
+export function getSkuBucket(letters: string[]): string {
+  if (letters.length === 0) return "Mixed";
+  const unique = new Set(letters);
+  if (unique.size === 1) return unique.values().next().value as string;
+  return "Mixed";
+}

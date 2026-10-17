@@ -4,10 +4,12 @@ import {
   buildInvoiceGroups,
   extractAddressTokensNearPostcodes,
   extractPostcodes,
-  extractSkus,
+  extractSkuCodes,
   findBestLabelForGroup,
   getSkuBucket,
+  naturalCompareSku,
   prettyPostcode,
+  sortedBucketPageIndices,
   type InvoiceGroup,
   type PdfTextPage,
 } from "./matching";
@@ -24,7 +26,7 @@ export interface FileBundle {
 
 export type OutputMode = "interleaved" | "overlay";
 
-export type PageSizeId = "a4" | "4x6";
+export type PageSizeId = "a4" | "a5" | "4x6";
 
 /** Fixed output page sizes (PDF points). Applied to every page in stacked mode. */
 export const PAGE_SIZES: Record<
@@ -32,6 +34,7 @@ export const PAGE_SIZES: Record<
   { label: string; width: number; height: number }
 > = {
   a4: { label: "A4 (210 × 297 mm)", width: 595.28, height: 841.89 },
+  a5: { label: "A5 (148 × 210 mm)", width: 419.53, height: 595.28 },
   "4x6": { label: "4×6 in label (101 × 152 mm)", width: 288, height: 432 },
 };
 
@@ -44,12 +47,24 @@ export interface OverlaySettings {
   drawBorder: boolean;
 }
 
-/** One entry per page of the generated document — drives the sequence strip + preview badges. */
+/** One entry per page of the generated document — drives bucket splitting + sequencing. */
 export interface OutputPage {
   role: "invoice" | "label";
   orderNumber: number;
   postcode: string;
   skuBucket: string; // e.g. "A", "B", ..., "Mixed"
+  skuKey: string; // the order's alphanumerically-first full SKU code ("" if none found)
+}
+
+/** One row of the orders manifest shown after processing. */
+export interface OrderSummary {
+  orderNumber: number;
+  matched: boolean;
+  postcode: string | null;
+  skuBucket: string;
+  invoicePages: number;
+  labelSourcePage: number | null; // 1-based page number inside the uploaded label batch
+  outputStartPage: number | null; // 1-based page number inside the generated document
 }
 
 export interface ProcessStats {
@@ -64,6 +79,7 @@ export interface ProcessResult {
   matchedBytes: Uint8Array | null;
   failedBytes: Uint8Array | null;
   pages: OutputPage[];
+  orders: OrderSummary[];
   stats: ProcessStats;
   skuBuckets: string[]; // e.g. ["A", "B", "Mixed"]
 }
@@ -143,6 +159,9 @@ export async function extractTextAndPostcodes(
 /*  PDF contains the invoice page(s) immediately followed by the       */
 /*  matching label page as its own full-size page:                     */
 /*  INV 1 → LABEL 1 → INV 2 → LABEL 2 → …                              */
+/*                                                                     */
+/*  OVERLAY mode: the matched label is drawn directly onto the first   */
+/*  invoice page at a configurable position / size / rotation.         */
 /* ------------------------------------------------------------------ */
 
 export async function processDocuments(
@@ -207,6 +226,7 @@ export async function processDocuments(
   const unmatchedDoc = await PDFDocument.create();
   const unusedLabelsDoc = await PDFDocument.create();
   const pages: OutputPage[] = [];
+  const orders: OrderSummary[] = [];
 
   let matchesCount = 0;
   let unmatchedCount = 0;
@@ -220,16 +240,21 @@ export async function processDocuments(
       usedLabelPages,
     );
 
-    // Extract SKUs from all pages in this group
+    // Extract full SKU codes from all pages in this group
     const groupTexts = group.pageIndices.map((idx) => invoicesData[idx]?.text || "");
-    const allSkus = groupTexts.flatMap(extractSkus);
-    const bucket = getSkuBucket(allSkus);
+    const skuCodes = groupTexts.flatMap(extractSkuCodes);
+    const bucket = getSkuBucket(skuCodes.map((c) => c[0]));
     skuBucketsSet.add(bucket);
+    // Sort key: the order's alphanumerically-first SKU — used to sequence bucket splits
+    const skuKey =
+      skuCodes.length > 0 ? [...skuCodes].sort(naturalCompareSku)[0] : "";
 
     if (match) {
       matchesCount++;
       usedLabelPages.add(match.labelIndex);
       unusedLabels.delete(match.labelIndex);
+
+      const outputStartPage = pages.length + 1; // 1-based, next page appended
 
       log(
         `Match: order ${group.orderNumber} (invoice p.${group.startPageNumber}) → label p.${
@@ -243,6 +268,16 @@ export async function processDocuments(
         );
       }
 
+      orders.push({
+        orderNumber: group.orderNumber,
+        matched: true,
+        postcode: match.postcode,
+        skuBucket: bucket,
+        invoicePages: group.pageIndices.length,
+        labelSourcePage: match.labelIndex + 1,
+        outputStartPage,
+      });
+
       // Invoice page(s) first…
       const copiedInvoicePages = await matchedDoc.copyPages(invoiceDoc, group.pageIndices);
       copiedInvoicePages.forEach((page) => {
@@ -252,12 +287,12 @@ export async function processDocuments(
           orderNumber: group.orderNumber,
           postcode: match.postcode,
           skuBucket: bucket,
+          skuKey,
         });
       });
 
       if (mode === "interleaved") {
-        // …then the matched label as its very next full-size page. This is the
-        // "invoice next to its label" layout requested.
+        // …then the matched label as its very next full-size page.
         const copiedLabelPages = await matchedDoc.copyPages(labelDoc, [match.labelIndex]);
         copiedLabelPages.forEach((page) => {
           matchedDoc.addPage(page);
@@ -266,6 +301,7 @@ export async function processDocuments(
             orderNumber: group.orderNumber,
             postcode: match.postcode,
             skuBucket: bucket,
+            skuKey,
           });
         });
       } else {
@@ -299,6 +335,15 @@ export async function processDocuments(
           : `No match for order ${group.orderNumber} (starts p.${group.startPageNumber}).`,
         "error",
       );
+      orders.push({
+        orderNumber: group.orderNumber,
+        matched: false,
+        postcode: group.postcodes[0] ?? null,
+        skuBucket: bucket,
+        invoicePages: group.pageIndices.length,
+        labelSourcePage: null,
+        outputStartPage: null,
+      });
       const copied = await unmatchedDoc.copyPages(invoiceDoc, group.pageIndices);
       copied.forEach((page) => unmatchedDoc.addPage(page));
     }
@@ -344,7 +389,7 @@ export async function processDocuments(
       `Built combined document: ${matchedDoc.getPageCount()} pages (${matchesCount} order(s)${
         mode === "interleaved"
           ? `, invoice + label side by side @ ${PAGE_SIZES[pageSize].label}`
-          : ", label overlaid"
+          : ", label overlaid on invoice"
       }).`,
       "success",
     );
@@ -362,7 +407,8 @@ export async function processDocuments(
   return {
     matchedBytes,
     failedBytes,
-    pages: mode === "interleaved" ? pages : pages.map((p) => ({ ...p })),
+    pages: pages.map((p) => ({ ...p })),
+    orders,
     stats: {
       invoices: groups.length,
       labels: labelsData.length,
@@ -454,6 +500,10 @@ export function formatKb(size: number): string {
 
 /**
  * Extract pages belonging to a specific SKU bucket from the combined PDF.
+ *
+ * Orders inside the bucket are re-sequenced in ascending alpha-numeric SKU
+ * order (A01… → A02… → A03… → A08… …) via sortedBucketPageIndices(); each
+ * order's invoice page(s) + label stay contiguous.
  */
 export async function extractSkuBucket(
   bytes: Uint8Array,
@@ -463,12 +513,7 @@ export async function extractSkuBucket(
   const srcDoc = await PDFDocument.load(bytes.slice(), { ignoreEncryption: true });
   const outDoc = await PDFDocument.create();
 
-  const bucketIndices: number[] = [];
-  for (let i = 0; i < pages.length; i++) {
-    if (pages[i].skuBucket === bucket) {
-      bucketIndices.push(i);
-    }
-  }
+  const bucketIndices = sortedBucketPageIndices(pages, bucket);
 
   if (bucketIndices.length === 0) return null;
 

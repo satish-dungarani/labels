@@ -28,9 +28,19 @@ export interface LabelMatch {
   ambiguousResolvedByOrder?: boolean;
 }
 
-/** UK postcode regex (full official pattern). */
+/**
+ * UK postcode regex.
+ *
+ * Fixed vs. the original: the old alternation had no word boundaries, so
+ * "SW1A 1AA" matched starting at the second character and produced "W1A1AA"
+ * (AA9A-format outcodes silently lost their leading letter). This permissive,
+ * boundary-anchored pattern covers all valid shapes — A9/A99/AA9/AA99/A9A/AA9A
+ * plus the GIR 0AA special case — without eating leading characters.
+ * SKU-style strings (B16PT3802) can't match: the trailing \d{1,} keeps them
+ * glued together so no word boundary ever follows a letter pair.
+ */
 const POSTCODE_REGEX =
-  /([Gg][Ii][Rr] 0[Aa]{2})|((([A-Za-z][0-9]{1,2})|(([A-Za-z][A-Ha-hJ-Yj-y][0-9]{1,2})|(([A-Za-z][0-9][A-Za-z])|([A-Ha-hJ-Yj-y][0-9][A-Za-z]?))))\s?[0-9][A-Za-z]{2})/g;
+  /\b(?:[Gg][Ii][Rr]\s?0[Aa]{2}|[A-Za-z]{1,2}\d[A-Za-z0-9]?\s?\d[A-Za-z]{2})\b/g;
 
 export function extractPostcodes(text: string): string[] {
   const matches = text.match(POSTCODE_REGEX);
@@ -227,36 +237,106 @@ export function buildInvoiceGroups(invoicesData: PdfTextPage[]): InvoiceGroup[] 
 }
 
 /**
- * Extract SKU codes from invoice text.
+ * SKU code extraction.
  *
  * Actual SKU pattern (from screenshots):
  *   Letter + 2 digits + 1-2 letters + 4-5 digits
  *   Examples: B16PT3802, B10B16058, E09M15422, A08B12587, B02B16633, C08M16506
  *
- * This strict pattern avoids matching postcodes (B5S7EW), VAT numbers (GB202436845),
+ * Pattern: 1-2 leading letters + 2 digits + 1-2 letters + 1+ trailing digits.
+ * Handles: B16PT3802 (1 letter), LB01M16509 (2 letters), C12TT1 (1 trailing digit),
+ * and truncated SKUs like A01T13. This strict pattern avoids matching postcodes
+ * (B5S7EW has only 1 digit after the initial letter), VAT numbers (GB202436845),
  * CO Reg No, dates, amounts, or any other invoice text.
- *
+ */
+const SKU_CODE_REGEX = /[A-Z]{1,2}\d{2}[A-Z]{1,2}\d{1,}/gi;
+
+/**
+ * Extract unique full SKU codes from invoice text
+ * (uppercased, in first-appearance order).
+ */
+export function extractSkuCodes(text: string): string[] {
+  const matches = text.match(SKU_CODE_REGEX);
+  if (!matches) return [];
+  return [...new Set(matches.map((m) => m.toUpperCase()))];
+}
+
+/**
  * Returns the first letter of each unique SKU found (for bucket assignment).
  */
 export function extractSkus(text: string): string[] {
-  // Pattern: 1-2 leading letters + 2 digits + 1-2 letters + 1+ trailing digits
-  // Handles: B16PT3802 (1 letter), LB01M16509 (2 letters), C12TT1 (1 trailing digit),
-  // and truncated SKUs like A01T13. Still safely rejects postcodes (B5S7EW has only
-  // 1 digit after the initial letter) and VAT/CO numbers (no letter section after digits).
-  const regex = /[A-Z]{1,2}\d{2}[A-Z]{1,2}\d{1,}/gi;
-  const matches = text.match(regex);
-  if (!matches) return [];
-
   const seen = new Set<string>();
   const firstLetters: string[] = [];
-  for (const m of matches) {
-    const firstChar = m[0].toUpperCase(); // normalize to uppercase
-    if (firstChar >= "A" && firstChar <= "Z" && !seen.has(firstChar)) {
+  for (const code of extractSkuCodes(text)) {
+    const firstChar = code[0];
+    if (!seen.has(firstChar)) {
       seen.add(firstChar);
       firstLetters.push(firstChar);
     }
   }
   return firstLetters;
+}
+
+/** Shared numeric-aware collator for natural SKU ordering. */
+const SKU_COLLATOR = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/**
+ * Natural alpha-numeric comparison — digit runs compare as numbers, so:
+ * "A01B11254" < "A02B1156" < "A03B11244" < "A08B11234"
+ */
+export function naturalCompareSku(a: string, b: string): number {
+  return SKU_COLLATOR.compare(a, b);
+}
+
+/** Minimal page metadata needed to sequence a bucket split. */
+export interface PageSkuInfo {
+  orderNumber: number;
+  skuBucket: string;
+  skuKey: string; // the order's alphanumerically-first full SKU code ("" if none)
+}
+
+/**
+ * Page indices for one SKU bucket, re-sequenced so its orders appear in
+ * ascending alpha-numeric SKU order (A01… → A02… → A03… …).
+ *
+ * Pages belonging to the same order (invoice pages + its label) stay
+ * contiguous; orders with equal keys keep their original file order.
+ */
+export function sortedBucketPageIndices(
+  pages: PageSkuInfo[],
+  bucket: string,
+): number[] {
+  interface OrderGroup {
+    skuKey: string;
+    position: number;
+    indices: number[];
+  }
+  const groups: OrderGroup[] = [];
+  let lastOrderNumber: number | null = null;
+
+  for (let i = 0; i < pages.length; i++) {
+    const p = pages[i];
+    if (p.skuBucket !== bucket) {
+      lastOrderNumber = null; // different-bucket page breaks group contiguity
+      continue;
+    }
+    const last = groups[groups.length - 1];
+    if (last && lastOrderNumber === p.orderNumber) {
+      last.indices.push(i);
+    } else {
+      groups.push({ skuKey: p.skuKey, position: groups.length, indices: [i] });
+    }
+    lastOrderNumber = p.orderNumber;
+  }
+
+  groups.sort(
+    (a, b) => naturalCompareSku(a.skuKey, b.skuKey) || a.position - b.position,
+  );
+
+  return groups.flatMap((g) => g.indices);
 }
 
 /**

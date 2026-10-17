@@ -4,7 +4,7 @@ import { cn } from "../utils/cn";
 import { formatKb, type FileBundle } from "../lib/engine";
 
 interface DropzoneProps {
-  accent: "cyan" | "emerald" | "violet";
+  accent: "cyan" | "emerald";
   icon: LucideIcon;
   title: string;
   hint: string;
@@ -29,15 +29,7 @@ const ACCENTS = {
     drag: "border-emerald-400/60 bg-emerald-400/[0.07]",
     badge: "bg-emerald-400/10 text-emerald-300 ring-1 ring-emerald-400/25",
     clearHover: "hover:text-emerald-300",
-    ready: "border-emerald-400/30 bg-emerald-400/[0.08] glow-cyan",
-  },
-  violet: {
-    iconTile: "bg-violet-400/10 text-violet-300 ring-violet-400/25",
-    hover: "hover:border-violet-400/40 hover:bg-violet-400/[0.04]",
-    drag: "border-violet-400/60 bg-violet-400/[0.07]",
-    badge: "bg-violet-400/10 text-violet-300 ring-1 ring-violet-400/25",
-    clearHover: "hover:text-violet-300",
-    ready: "border-violet-400/30 bg-violet-400/[0.08] glow-violet",
+    ready: "border-emerald-400/30 bg-emerald-400/[0.08] glow-emerald",
   },
 } as const;
 

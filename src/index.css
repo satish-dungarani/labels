@@ -15,7 +15,7 @@ html {
 }
 
 body {
-  background-color: #0a0e17;
+  background-color: #0b0f16;
   color: #d4d4d8;
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -23,7 +23,7 @@ body {
 }
 
 ::selection {
-  background: rgba(139, 92, 246, 0.4);
+  background: rgba(249, 115, 22, 0.45);
   color: #ffffff;
 }
 
@@ -43,14 +43,15 @@ body {
   background: rgba(148, 163, 184, 0.5);
 }
 
-/* ---- Diamond theme utilities ---- */
+/* ---- Card / input ---- */
 .diamond-card {
-  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.8) 100%);
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.55) 0%, rgba(15, 23, 42, 0.8) 100%);
   border: 1px solid rgba(100, 116, 139, 0.2);
   backdrop-filter: blur(12px);
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.3),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
 .diamond-card:hover {
@@ -58,7 +59,7 @@ body {
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    0 0 0 1px rgba(139, 92, 246, 0.1);
+    0 0 0 1px rgba(249, 115, 22, 0.08);
 }
 
 .diamond-input {
@@ -73,21 +74,22 @@ body {
 
 .diamond-input:focus {
   outline: none;
-  border-color: rgba(139, 92, 246, 0.6);
-  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.15), 0 0 16px rgba(139, 92, 246, 0.1);
+  border-color: rgba(249, 115, 22, 0.6);
+  box-shadow: 0 0 0 3px rgba(249, 115, 22, 0.15), 0 0 16px rgba(249, 115, 22, 0.1);
 }
 
+/* ---- Buttons ---- */
 .diamond-btn-primary {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 50%, #3b82f6 100%);
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 50%, #f05033 100%);
   color: white;
   font-weight: 600;
-  box-shadow: 0 4px 16px rgba(139, 92, 246, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(249, 115, 22, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition: all 0.2s ease;
 }
 
 .diamond-btn-primary:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(139, 92, 246, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 24px rgba(249, 115, 22, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .diamond-btn-primary:disabled {
@@ -96,16 +98,16 @@ body {
 }
 
 .diamond-btn-success {
-  background: linear-gradient(135deg, #06b6d4 0%, #0891b2 50%, #0d9488 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 50%, #0d9488 100%);
   color: white;
   font-weight: 600;
-  box-shadow: 0 4px 16px rgba(6, 182, 212, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.15);
   transition: all 0.2s ease;
 }
 
 .diamond-btn-success:hover:not(:disabled) {
   transform: translateY(-1px);
-  box-shadow: 0 6px 24px rgba(6, 182, 212, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 6px 24px rgba(16, 185, 129, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
 
 .diamond-btn-danger {
@@ -134,12 +136,26 @@ body {
   box-shadow: 0 6px 24px rgba(245, 158, 11, 0.35);
 }
 
+.diamond-btn-ghost {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #d4d4d8;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+.diamond-btn-ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
 /* ---- Accent glows ---- */
 .glow-cyan {
   box-shadow: 0 0 20px rgba(6, 182, 212, 0.15), 0 0 0 1px rgba(6, 182, 212, 0.2);
 }
-.glow-violet {
-  box-shadow: 0 0 20px rgba(139, 92, 246, 0.15), 0 0 0 1px rgba(139, 92, 246, 0.2);
+.glow-orange {
+  box-shadow: 0 0 20px rgba(249, 115, 22, 0.18), 0 0 0 1px rgba(249, 115, 22, 0.22);
+}
+.glow-emerald {
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.15), 0 0 0 1px rgba(16, 185, 129, 0.2);
 }
 .glow-gold {
   box-shadow: 0 0 20px rgba(245, 158, 11, 0.15), 0 0 0 1px rgba(245, 158, 11, 0.2);
@@ -163,6 +179,15 @@ body {
   animation: fade-up 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* ---- Slide in for chips ---- */
+@keyframes chip-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to { opacity: 1; transform: scale(1); }
+}
+.animate-chip-in {
+  animation: chip-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* ---- Pulse ---- */
 @keyframes pulse-glow {
   0%, 100% { opacity: 0.4; }
@@ -183,15 +208,48 @@ input[type="number"] {
   appearance: textfield;
 }
 
-/* ---- Diamond pattern bg ---- */
-.bg-diamond-pattern {
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(245, 158, 11, 0.05) 0%, transparent 50%);
+/* ---- Range sliders ---- */
+.git-range {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  outline: none;
+  cursor: pointer;
+}
+.git-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fb923c, #f05033);
+  border: 2px solid #0b0f16;
+  box-shadow: 0 0 0 1.5px rgba(249, 115, 22, 0.55), 0 2px 8px rgba(249, 115, 22, 0.4);
+  transition: transform 0.15s ease;
+}
+.git-range::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+}
+.git-range::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #fb923c, #f05033);
+  border: 2px solid #0b0f16;
+  box-shadow: 0 0 0 1.5px rgba(249, 115, 22, 0.55);
 }
 
-/* ---- Badge styles ---- */
+/* ---- Background pattern ---- */
+.bg-diamond-pattern {
+  background-image:
+    radial-gradient(ellipse at 20% 50%, rgba(249, 115, 22, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(6, 182, 212, 0.07) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 85%, rgba(16, 185, 129, 0.05) 0%, transparent 55%);
+}
+
+/* ---- Badges ---- */
 .badge-invoice {
   background: rgba(6, 182, 212, 0.12);
   color: #22d3ee;
@@ -201,4 +259,13 @@ input[type="number"] {
   background: rgba(16, 185, 129, 0.12);
   color: #34d399;
   border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+/* ---- Hide scrollbars on the sequence strip ---- */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
